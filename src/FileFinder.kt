@@ -11,11 +11,6 @@ class FileFinder {
             // directory isn't valid
         }
 
-        val allFiles = directory.walkTopDown().filter { it.isFile }.toList()
-        val filesSize = allFiles.size
-        println("Total number in directory: $filesSize")
-        var currentIndex = 0
-
         directory.listFiles()?.forEach {
             if (it.isDirectory) {
                 if (recursiveEnabled)searchByName(it.absolutePath, searchString)
