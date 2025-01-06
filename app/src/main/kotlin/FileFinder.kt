@@ -1,66 +1,137 @@
 import java.io.File
 import kotlin.system.exitProcess
 
-class FileFinder {
+class FileFinder(
+    directoryPath: String,
+    searchString: String,
+    private var searchRecursive: String = "--true", private var searchFormat:String = "--shallow") {
 
-    fun searchByName(directoryPath: String, searchString: String, recursiveEnabled: Boolean = true) {
-        val directory = File(directoryPath)
-        if (!directory.exists() || !directory.isDirectory) {
-            println("Invalid directory path, does it exist?")
-            // directory isn't valid
+    // The default nature for recursion is true
+    private var recursiveEnabled: Boolean = true
+    // The default nature for file content searching is false
+    var searchDeep: Boolean = false
+    private var currentDirectoryPath: String = ""
+    var currentSearchString: String = ""
+
+    // For mutableSet of results
+    private var contentSearchResults: MutableSet<File> = mutableSetOf()
+
+    init {
+        // Handle recursive searching
+        searchRecursive = if (searchRecursive.lowercase().startsWith("--"))  {
+            searchRecursive.split("--")[1]
+        } else searchRecursive.lowercase()
+
+        recursiveEnabled = when (searchRecursive) {
+            "true" -> true
+            "false" -> false
+            else -> true
         }
 
-        directory.listFiles()?.forEach {
-            if (it.isDirectory) {
-                if (recursiveEnabled)searchByName(it.absolutePath, searchString)
-            } else if (it.name.contains(searchString, ignoreCase = true)) {
-                println(it.absolutePath)
+        // Handle search format
+        searchFormat = if (searchFormat.lowercase().startsWith("--")) {
+            searchFormat.split("--")[1]
+        } else searchFormat.lowercase()
+
+        searchDeep = when (searchFormat) {
+            "deep" -> true
+            "shallow" -> false
+            else -> false
+        }
+
+        // Handle directory path -> where to search
+        currentDirectoryPath = when(directoryPath.lowercase()) {
+            "." -> { // treat as current directory
+                File(System.getProperty("user.dir")).absolutePath
+            }
+            else -> {
+                // call FileFinder class to handle this
+                directoryPath
             }
         }
+
+        currentSearchString = searchString
+
+        println("Searching for \"$currentSearchString\" in $currentDirectoryPath")
+
     }
 
-    fun searchByContent(directoryPath: String, searchString: String, recursiveEnabled: Boolean = true) {
-        val directory = File(directoryPath)
+    fun searchByName() : Set<File> {
+        val result = mutableSetOf<File>()
+        val directory = File(currentDirectoryPath)
         if (!directory.exists() || !directory.isDirectory) {
             println("Invalid directory path, does it exist?")
             // directory isn't valid
+            return emptySet()
         }
 
-        directory.listFiles()?.forEach {
-            if (it.isDirectory) {
-                if (recursiveEnabled)searchByContent(it.absolutePath, searchString)
-            } else {
-                // will read entire file into a single string
+        if (currentSearchString.isEmpty()) return emptySet()
 
-                if (it.name.contains(searchString, ignoreCase = true)) {
+        if (recursiveEnabled) {
+            directory.walkTopDown().forEach {
+                if (it.isFile && it.name.contains(currentSearchString, ignoreCase = true)) {
+                    result.add(it)
                     println(it.absolutePath)
                 }
-                if (it.extension == "txt" || it.extension == "md" || it.extension == "xml") {
-
-                    try {
-                        val content = it.readText()
-                        if (content.contains(searchString, ignoreCase = true)) {
-                            println(it.absolutePath)
-                        }
-                    } catch (e: Exception) {
-                        println("Error reading from: ${it.absolutePath}")
-                    }
+            }
+        } else {
+            directory.listFiles()?.forEach {
+                if (it.isFile && it.name.contains(currentSearchString, ignoreCase = true)) {
+                    println(it.absolutePath)
+                    result.add(it)
                 }
             }
         }
+        return result
     }
 
-    fun printProgressBar(percentage: Int) {
-        val progressBarWidth = 50
-        val completed = (percentage * progressBarWidth) / 100
-        val bar = "=".repeat(completed) + " ".repeat(progressBarWidth - completed)
-        print("\r|$bar| $percentage%")
+    fun searchByContent(): Set<File> {
+        // Clear the results at the beginning so they remain consistent
+        contentSearchResults.clear()
+
+        val directory = File(currentDirectoryPath)
+        if (!directory.exists() || !directory.isDirectory) {
+            println("Invalid directory path, does it exist?")
+            // directory isn't valid
+            return emptySet()
+        }
+
+        if (currentSearchString.isEmpty()) return emptySet()
+
+        if (recursiveEnabled) {
+            directory.walkTopDown().forEach {
+                if (it.isFile) privateContentSearch(it)
+            }
+        } else {
+            directory.listFiles()?.forEach {
+                if (it.isFile) privateContentSearch(it)
+            }
+        }
+
+        return contentSearchResults
     }
 
+    private fun privateContentSearch(file: File) {
+        if (file.name.contains(currentSearchString, ignoreCase = true)) {
+            println(file.absolutePath)
+            contentSearchResults.add(file)
+        } else if (file.extension == "txt" || file.extension == "md" || file.extension == "xml") {
+
+            try {
+                val content = file.readText()
+                if (content.contains(currentSearchString, ignoreCase = true)) {
+                    println(file.absolutePath)
+                    contentSearchResults.add(file)
+                }
+            } catch (e: Exception) {
+                println("Error reading from: ${file.absolutePath}")
+            }
+        }
+    }
 }
 
 fun main(args: Array<String>) {
-    val fileFinder = FileFinder()
+
     print("> ")
     if (args.isEmpty() || args.size < 2 || args.size > 4) printUsageAndExit()
 
@@ -69,36 +140,12 @@ fun main(args: Array<String>) {
     val searchRecursive = if (args.size >= 3) args[2] else "--true"
     val searchFormat = if (args.size >= 4) args[3] else "--shallow"
 
-    // Handle recursive searching
-    val recursiveEnabled = when (searchRecursive.lowercase().split("--")[1]) {
-        "true" -> true
-        "false" -> false
-        else -> true
-    }
 
-    // Handle search format
-    val searchDeep = when (searchFormat.lowercase().split("--")[1]) {
-        "deep" -> true
-        "shallow" -> false
-        else -> false
-    }
+    val fileFinder = FileFinder(directoryPath, searchString, searchRecursive, searchFormat)
 
-    // Handle directory path -> where to search
-    val currentDirectoryPath = when(directoryPath.lowercase()) {
-        "." -> { // treat as current directory
-            File(System.getProperty("user.dir")).absolutePath
-        }
-        else -> {
-            // call FileFinder class to handle this
-            directoryPath
-        }
-    }
-
-    println("Searching for \"$searchString\" in $currentDirectoryPath")
-
-    when (searchDeep) {
-        true -> fileFinder.searchByContent(currentDirectoryPath, searchString, recursiveEnabled)
-        false -> fileFinder.searchByName(currentDirectoryPath, searchString, recursiveEnabled)
+    when (fileFinder.searchDeep) {
+        true -> fileFinder.searchByContent()
+        false -> fileFinder.searchByName()
     }
 }
 
