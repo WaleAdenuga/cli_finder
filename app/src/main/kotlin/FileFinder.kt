@@ -150,7 +150,7 @@ fun main(args: Array<String>) {
 }
 
 fun printUsageAndExit() {
-    println("Usage: tscfinder <directory_path> <search_value> [options] [search_form]")
+    println("Usage: cli_finder <directory_path> <search_value> [options] [search_form]")
     println("Use this tool to find files that match the provided file name")
     println("""
          search_form: --shallow: search each file in the directory by name and see if it matches
@@ -163,11 +163,11 @@ fun printUsageAndExit() {
     """.trimIndent())
     println("""
         ================================
-        Example: tscfinder . node --true --shallow
-        tscfinder would search the current directory's file names recursively for "node"
+        Example: cli_finder . node --true --shallow
+        cli_finder would search the current directory's file names recursively for "node"
         ================================
-        ==> tscfinder "C:\Users\name\Downloads" persona --false --deep
-        tscfinder would search the contents of the text files in provided directory path non-recursively for "persona"
+        ==> cli_finder "C:\Users\name\Downloads" persona --false --deep
+        cli_finder would search the contents of the text files in provided directory path non-recursively for "persona"
     """.trimIndent())
 
     // exit with 0 indicating successful termination
